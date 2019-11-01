@@ -87,11 +87,11 @@ namespace CameraSDK.Camera
         public abstract PTZ_INFO_BASE GetPTZ_Info(int ChannelId = 1);
 
         /// <summary>
-        /// 自定义枚举转相机SDK枚举
+        /// 自定义云台操作枚举 转 相机SDK枚举
         /// </summary>
-        /// <param name="command"></param>
-        /// <returns></returns>
-        public abstract int Enum2Command(PTZCommand command);
+        /// <param name="command">自定义云台操作枚举</param>
+        /// <returns>相机SDK枚举值</returns>
+        public abstract int GetSDKCommand(PTZCommand command);
     }
 
     /// <summary>

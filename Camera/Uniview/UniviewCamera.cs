@@ -26,6 +26,14 @@ namespace CameraSDK.Camera.Uniview
 
         public new VideoDataCallBackHanlder VideoDataCallBackEvent;
 
+        public UniviewCamera(CAMERA_CONFIG config) : this(config.Ip, config.Port, config.UserName, config.Password)
+        {
+            if (config.HaveNullOrEmpty())
+            {
+                throw new Exception("Config 字段不能为null或空!");
+            }
+        }
+
         public UniviewCamera(string ip, short port, string userName, string password) : base(ip, port, userName, password)
         {
             Init();

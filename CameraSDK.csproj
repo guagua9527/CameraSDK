@@ -78,6 +78,7 @@
     <Compile Include="Camera\Uniview\SDK\UniviewNETSDK.cs" />
     <Compile Include="Camera\Uniview\UniviewCamera.cs" />
     <Compile Include="Camera\Uniview\UniviewPTZControl.cs" />
+    <Compile Include="Enum\PTZCommand.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -86,7 +86,6 @@ namespace CameraSDK.Camera.Uniview
 
         public override bool PTZ_Left()
         {
-            Console.WriteLine("left");
             return PTZControl((int)NETDEV_PTZ_E.NETDEV_PTZ_PANLEFT, Default_Speed);
         }
 
@@ -231,17 +230,13 @@ namespace CameraSDK.Camera.Uniview
         {
             if (camera.PlayHandle != IntPtr.Zero)
             {
-                Console.WriteLine("PlayHandle");
                 return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZControl(camera.PlayHandle, PTZCommand, speed); //启用的预览的云台控制
 
             }
             else if (camera.deviceInfo.m_lpDevHandle != IntPtr.Zero)
             {
-                Console.WriteLine(camera.deviceInfo.m_lpDevHandle);
-                Console.WriteLine("m_lpDevHandle");
                 return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZControl_Other(camera.deviceInfo.m_lpDevHandle, ChannelID, PTZCommand, speed); //没有启动预览的云台控制
             }
-            Console.WriteLine("false");
             return false;
         }
 
@@ -253,7 +248,7 @@ namespace CameraSDK.Camera.Uniview
         public override bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId = 1)
         {
             Uniview_PTZ_INFO INFO = PTZ as Uniview_PTZ_INFO;
-            Console.WriteLine("INFO--->"+INFO);
+
             NETDEV_PTZ_ABSOLUTE_MOVE_S PTZ_MOVE_S = new NETDEV_PTZ_ABSOLUTE_MOVE_S
             {
                 fPanTiltX = INFO.P_Data,

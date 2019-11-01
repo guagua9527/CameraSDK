@@ -18,12 +18,12 @@ namespace CameraSDK.Camera
         public readonly string UserName;      //用户名
         public readonly string Password;      //密码
 
-        public string SavePath;
+        public string SavePath = $"./";
 
         /// <summary>
         /// 云台控制成员
         /// </summary>
-        public PTZControlBase PTZControl;
+        public PTZControlBase PTZControl { get; protected set; }
 
         /// <summary>
         /// 播放控件句柄
@@ -49,6 +49,10 @@ namespace CameraSDK.Camera
 
         public CameraBase(string ip, short port, string userName, string password)
         {
+            if (string.IsNullOrEmpty(ip) || string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password) || port == 0)
+            {
+                throw new Exception("参数不能为null或空!");
+            }
             this.IpAddress = ip;
             this.Port = port;
             this.UserName = userName;
@@ -59,7 +63,7 @@ namespace CameraSDK.Camera
         {
             if (config.HaveNullOrEmpty())
             {
-                throw new Exception("Config 字段不能为空!");
+                throw new Exception("Config 字段不能为null或空!");
             }
         }
 
@@ -142,6 +146,10 @@ namespace CameraSDK.Camera
 
         public bool HaveNullOrEmpty()
         {
+            Console.WriteLine(string.IsNullOrEmpty(Ip));
+            Console.WriteLine(string.IsNullOrEmpty(UserName));
+            Console.WriteLine(string.IsNullOrEmpty(Password));
+            Console.WriteLine(Port == 0);
             return string.IsNullOrEmpty(Ip)
                 && string.IsNullOrEmpty(UserName)
                 && string.IsNullOrEmpty(Password)
