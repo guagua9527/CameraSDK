@@ -1,7 +1,9 @@
 ﻿using CameraSDK.Enum;
 using Emgu.CV;
+using FOD_AI_SDK;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,12 +15,16 @@ namespace CameraSDK.Camera
     /// </summary>
     public abstract class CameraBase : IDisposable
     {
-        public readonly string IpAddress;     //相机IP地址
+        public readonly string IpAddress;       //相机IP地址
         public readonly short Port;             //相机端口
-        public readonly string UserName;      //用户名
-        public readonly string Password;      //密码
+        public readonly string UserName;        //用户名
+        public readonly string Password;        //密码
 
-        public string SavePath = $"./";
+        public double Height { get; set; }    //相机位置高度
+
+        public bool ShowCenterCross = false;
+
+        public float MAX_ZOOM = 44;
 
         /// <summary>
         /// 云台控制成员
@@ -28,12 +34,16 @@ namespace CameraSDK.Camera
         /// <summary>
         /// 播放控件句柄
         /// </summary>
-        internal IntPtr PlayControlHandle;
+        public IntPtr PlayControlHandle;
 
         /// <summary>
         /// 播放句柄
         /// </summary>
         internal IntPtr PlayHandle;
+
+        public AI_SDK ai_SDK;
+
+        public ImagePool imagePool = new ImagePool();
 
         /// <summary>
         /// 是否正在播放
@@ -44,10 +54,10 @@ namespace CameraSDK.Camera
         /// 画面回调委托
         /// </summary>
         /// <param name="mat">当前帧图像</param>
-        public delegate void VideoDataCallBackHanlder(Mat mat);
+        public delegate void VideoDataCallBackHanlder(Bitmap bmp);
         public event VideoDataCallBackHanlder VideoDataCallBackEvent;
 
-        public CameraBase(string ip, short port, string userName, string password)
+        public CameraBase(string ip, short port, string userName, string password, double height)
         {
             if (string.IsNullOrEmpty(ip) || string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password) || port == 0)
             {
@@ -57,9 +67,11 @@ namespace CameraSDK.Camera
             this.Port = port;
             this.UserName = userName;
             this.Password = password;
+
+            this.Height = height;
         }
 
-        public CameraBase(CAMERA_CONFIG config):this(config.Ip, config.Port, config.UserName, config.Password)
+        public CameraBase(CAMERA_CONFIG config):this(config.Ip, config.Port, config.UserName, config.Password, config.Height)
         {
             if (config.HaveNullOrEmpty())
             {
@@ -99,7 +111,7 @@ namespace CameraSDK.Camera
         /// </summary>
         protected abstract bool SDK_Dispose();
 
-        public abstract bool SaveRealData();
+        public abstract bool SaveRealData(string folderPath);
         public abstract bool StopSaveRealData();
 
         /// <summary>
@@ -112,6 +124,13 @@ namespace CameraSDK.Camera
         /// 停止实时预览
         /// </summary>
         public abstract bool StopRealPlay();
+
+        /// <summary>
+        /// 获取当前分辨率
+        /// </summary>
+        /// <param name="width"></param>
+        /// <param name="height"></param>
+        public abstract void GetResolution(ref int width, ref int height);
 
         /// <summary>
         /// 获取最新的SDK错误码
@@ -136,20 +155,19 @@ namespace CameraSDK.Camera
         public string UserName;
         public string Password;
 
-        public CAMERA_CONFIG(string ip, short port, string username, string password)
+        public double Height;
+
+        public CAMERA_CONFIG(string ip, short port, string username, string password, double height = 0)
         {
             this.Ip = ip;
             this.Port = port;
             this.UserName = username;
             this.Password = password;
+            this.Height = height;
         }
 
         public bool HaveNullOrEmpty()
         {
-            Console.WriteLine(string.IsNullOrEmpty(Ip));
-            Console.WriteLine(string.IsNullOrEmpty(UserName));
-            Console.WriteLine(string.IsNullOrEmpty(Password));
-            Console.WriteLine(Port == 0);
             return string.IsNullOrEmpty(Ip)
                 && string.IsNullOrEmpty(UserName)
                 && string.IsNullOrEmpty(Password)

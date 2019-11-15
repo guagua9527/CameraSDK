@@ -12,7 +12,13 @@ namespace CameraSDK.Camera
     /// </summary>
     public abstract class PTZControlBase
     {
-        public int Default_Speed = 1;
+        public int Default_Speed = 3;
+
+        public bool Locked { get; set; } = false;
+
+        public float P_Correct = 0f; //水平校正值
+        public float T_Correct = 0f; //水平校正值
+        public float Z_Correct = 0f; //水平校正值
 
         public PTZControlBase(CameraBase camera)
         {

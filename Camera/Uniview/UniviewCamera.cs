@@ -3,6 +3,7 @@ using CameraSDK.Enum;
 using Emgu.CV;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
@@ -14,7 +15,7 @@ namespace CameraSDK.Camera.Uniview
 {
     public class UniviewCamera : CameraBase
     {
-        public static float MAX_ZOOM = 44;
+        public new static float MAX_ZOOM = 44;
 
         public int m_panelIndex = -1;
         public int m_deviceIndex = -1;
@@ -26,7 +27,16 @@ namespace CameraSDK.Camera.Uniview
 
         public new VideoDataCallBackHanlder VideoDataCallBackEvent;
 
-        public UniviewCamera(CAMERA_CONFIG config) : this(config.Ip, config.Port, config.UserName, config.Password)
+        NETDEVSDK.NETDEV_DECODE_VIDEO_DATA_CALLBACK_PF videoDataCB;
+        NETDEVSDK.NETDEV_DISPLAY_CALLBACK_PF displayCB;
+
+        static UniviewCamera()
+        {
+            ThreadPool.SetMaxThreads(2000, 1000);
+            ThreadPool.SetMinThreads(500, 500);
+        }
+
+        public UniviewCamera(CAMERA_CONFIG config) : this(config.Ip, config.Port, config.UserName, config.Password, config.Height)
         {
             if (config.HaveNullOrEmpty())
             {
@@ -34,13 +44,11 @@ namespace CameraSDK.Camera.Uniview
             }
         }
 
-        public UniviewCamera(string ip, short port, string userName, string password) : base(ip, port, userName, password)
+        public UniviewCamera(string ip, short port, string userName, string password, double height) : base(ip, port, userName, password, height)
         {
             Init();
 
             this.PTZControl = new UniviewPTZControl(this);
-
-            SavePath = @"./";
         }
 
         public override bool Init()
@@ -108,11 +116,24 @@ namespace CameraSDK.Camera.Uniview
             IsPlay = true;
 
             //注册视频画面显示后数据回调
-            //displayCB = new NETDEVSDK.NETDEV_DISPLAY_CALLBACK_PF(DisplayCallBack);
+            //NETDEV_DISPLAY_CALLBACK_PF displayCB = new NETDEVSDK.NETDEV_DISPLAY_CALLBACK_PF(DisplayCallBack);
             //IntPtr displayPtr = Marshal.GetFunctionPointerForDelegate(displayCB);
             //iRet = NETDEVSDK.NETDEV_SetPlayDisplayCB(PlayHandle, displayPtr, IntPtr.Zero);
 
             return true;
+        }
+
+        public bool RegisteDisplayCB(NETDEVSDK.NETDEV_DISPLAY_CALLBACK_PF DisplayCallBack)
+        {
+            if (PlayHandle == IntPtr.Zero)
+            {
+                throw new Exception("未启动预览，无法注册画面回调函数");
+            }
+            displayCB = DisplayCallBack;
+
+            IntPtr displayPtr = Marshal.GetFunctionPointerForDelegate(displayCB);
+
+            return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_SetPlayDisplayCB(PlayHandle, displayPtr, IntPtr.Zero);
         }
 
         public override bool StopRealPlay()
@@ -130,15 +151,16 @@ namespace CameraSDK.Camera.Uniview
 		/// <param name="lpUserID"></param>
 		/// <param name="pstPictureData"></param>
 		/// <param name="lpUserParam"></param>
-		[HandleProcessCorruptedStateExceptions]
+		//[HandleProcessCorruptedStateExceptions]
         public void VideoDataCallBack(IntPtr lpUserID, ref NETDEV_PICTURE_DATA_S pstPictureData, IntPtr lpUserParam)
         {
+            //ai_SDK?.Logger.Log("DistinguishImage", "in1");
             //YUV画面的数据
             NETDEV_PICTURE_DATA_S temp = pstPictureData;
-
-            new Task(() =>
+            //ai_SDK?.Logger?.Log("DistinguishImage", "in2");
+            ThreadPool.QueueUserWorkItem((obj) =>
             {
-                //YUV数据转一维数组
+                // YUV数据转一维数组
                 byte[] Yarr = new byte[temp.dwLineSize[0] * temp.dwPicHeight];
                 byte[] Uarr = new byte[temp.dwLineSize[1] * temp.dwPicHeight / 2];
                 byte[] Varr = new byte[temp.dwLineSize[2] * temp.dwPicHeight / 2];
@@ -166,14 +188,21 @@ namespace CameraSDK.Camera.Uniview
 
                 //YUV图像转BGR图像
                 Mat res = new Mat(temp.dwPicHeight, temp.dwPicWidth, Emgu.CV.CvEnum.DepthType.Cv8U, 3);
-                CvInvoke.CvtColor(mat, res, Emgu.CV.CvEnum.ColorConversion.Yuv2BgrIyuv);
+                CvInvoke.CvtColor(mat, res, Emgu.CV.CvEnum.ColorConversion.Yuv2BgrIyuv);//Yuv2BgrIyuv
 
-                //触发回调事件
-                VideoDataCallBackEvent?.Invoke(res);
+                if (ai_SDK != null)
+                {
+                        Bitmap bmp = new Bitmap(res.Bitmap);
+                        //int index = imagePool.AddImage(bmp);
+                        //ai_SDK.DistinguishImage(index, bmp);
+                        VideoDataCallBackEvent?.Invoke(bmp);
+
+                        bmp.Dispose();
+                }
 
                 res.Dispose();
                 mat.Dispose();
-            }).Start();
+            });
         }
 
         public override bool RegistVideoDataCallBack(VideoDataCallBackHanlder callback)
@@ -181,11 +210,11 @@ namespace CameraSDK.Camera.Uniview
             VideoDataCallBackEvent += callback;
 
             //注册视频解码数据回调事件
-            NETDEVSDK.NETDEV_DECODE_VIDEO_DATA_CALLBACK_PF videoDataCB = new NETDEVSDK.NETDEV_DECODE_VIDEO_DATA_CALLBACK_PF(VideoDataCallBack);
+            videoDataCB = new NETDEVSDK.NETDEV_DECODE_VIDEO_DATA_CALLBACK_PF(VideoDataCallBack);
 
             IntPtr cbPtr = Marshal.GetFunctionPointerForDelegate(videoDataCB);
-            int iRet = NETDEVSDK.NETDEV_SetPlayDecodeVideoCB(PlayHandle, videoDataCB, 1, IntPtr.Zero);
 
+            int iRet = NETDEVSDK.NETDEV_SetPlayDecodeVideoCB(PlayHandle, videoDataCB, 1, IntPtr.Zero);
             return iRet == NETDEVSDK.TRUE;
         }
 
@@ -195,11 +224,12 @@ namespace CameraSDK.Camera.Uniview
             {
                 if (NETDEVSDK.FALSE == NETDEVSDK.NETDEV_StopRealPlay(PlayHandle))
                 {
-                    Console.WriteLine(deviceInfo.m_ip + " chl:" + (1), "stop real play", NETDEVSDK.NETDEV_GetLastError());
+                    Console.WriteLine(deviceInfo.m_ip + " chl:" + 1, "stop real play", NETDEVSDK.NETDEV_GetLastError());
                 }
                 IsPlay = false;
             }
-
+            displayCB = null;
+            videoDataCB = null;
             SDK_Dispose();
         }
 
@@ -247,15 +277,20 @@ namespace CameraSDK.Camera.Uniview
             return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_Init();
         }
 
-        public override bool SaveRealData()
+        public override bool SaveRealData(string folderPath)
         {
-            return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_SaveRealData(PlayHandle, Encoding.Default.GetBytes(SavePath), (int)NETDEV_MEDIA_FILE_FORMAT_E
+            return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_SaveRealData(PlayHandle, Encoding.Default.GetBytes(folderPath), (int)NETDEV_MEDIA_FILE_FORMAT_E
 .NETDEV_MEDIA_FILE_VIDEO_AVI_ADD_RCD_TIME);
         }
 
         public override bool StopSaveRealData()
         {
             return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_StopSaveRealData(PlayHandle);
+        }
+
+        public override void GetResolution(ref int width, ref int height)
+        {
+            NETDEVSDK.NETDEV_GetResolution(PlayHandle, ref width, ref height);
         }
     }
 }

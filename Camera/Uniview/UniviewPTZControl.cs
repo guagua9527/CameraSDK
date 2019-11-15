@@ -228,6 +228,11 @@ namespace CameraSDK.Camera.Uniview
         /// <returns></returns>
 		public bool PTZControl(int PTZCommand, int speed, int ChannelID = 1)
         {
+            if (Locked)
+            {
+                return false;
+            }
+
             if (camera.PlayHandle != IntPtr.Zero)
             {
                 return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZControl(camera.PlayHandle, PTZCommand, speed); //启用的预览的云台控制
@@ -247,6 +252,16 @@ namespace CameraSDK.Camera.Uniview
 
         public override bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId = 1)
         {
+            if (Locked)
+            {
+                return false;
+            }
+
+            //校正Pan值
+            PTZ.Pan  -= P_Correct;
+            PTZ.Tilt -= T_Correct;
+            PTZ.Zoom -= Z_Correct;
+
             Uniview_PTZ_INFO INFO = PTZ as Uniview_PTZ_INFO;
 
             NETDEV_PTZ_ABSOLUTE_MOVE_S PTZ_MOVE_S = new NETDEV_PTZ_ABSOLUTE_MOVE_S
@@ -348,7 +363,7 @@ namespace CameraSDK.Camera.Uniview
             }
         }
         public float T_Data { get => Tilt / 90; }
-        public float Z_Data { get => Zoom / UniviewCamera.MAX_ZOOM; }
+        public float Z_Data { get => (Zoom - 1) / (UniviewCamera.MAX_ZOOM - 1); }
 
         public Uniview_PTZ_INFO(float pan, float tilt, float zoom) : base(pan, tilt, zoom)
         {
@@ -380,7 +395,7 @@ namespace CameraSDK.Camera.Uniview
             }
 
             Tilt = tData * 90;
-            Zoom = zData * UniviewCamera.MAX_ZOOM;
+            Zoom = zData * (UniviewCamera.MAX_ZOOM - 1) + 1;
 
             return new Uniview_PTZ_INFO(Pan, Tilt, Zoom)
             {
