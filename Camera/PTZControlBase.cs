@@ -25,11 +25,11 @@ namespace CameraSDK.Camera
 
         }
 
-        public abstract bool PTZ_Control(PTZCommand command);
-        public abstract bool PTZ_Control(PTZCommand command, int speed);
+        public abstract bool PTZ_Control(PTZCommand command, bool isStop);
+        public abstract bool PTZ_Control(PTZCommand command, int speed, bool isStop);
 
-        protected abstract bool PTZ_Control(int command);
-        protected abstract bool PTZ_Control(int command, int speed);
+        protected abstract bool PTZ_Control(int command, bool isStop);
+        protected abstract bool PTZ_Control(int command, int speed, bool isStop);
 
         public abstract bool PTZ_Left();
         public abstract bool PTZ_Left(int speed);
@@ -86,11 +86,13 @@ namespace CameraSDK.Camera
         /// <param name="Tilt">T</param>
         /// <param name="Zoom">Z</param>
         /// <returns></returns>
-        public abstract bool SetPTZ(float Pan, float Tilt, float Zoom, int ChannelId = 1);
+        public abstract bool SetPTZ(float Pan, float Tilt, float Zoom);
+        public abstract bool SetPTZ(float Pan, float Tilt, float Zoom, int ChannelId);
 
-        public abstract bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId = 1);
+        public abstract bool SetPTZ(PTZ_INFO_BASE PTZ);
+        public abstract bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId);
 
-        public abstract PTZ_INFO_BASE GetPTZ_Info(int ChannelId = 1);
+        public abstract PTZ_INFO_BASE GetPTZ_Info();
 
         /// <summary>
         /// 自定义云台操作枚举 转 相机SDK枚举

@@ -12,29 +12,31 @@ namespace CameraSDK.Camera.Uniview
     {
         protected UniviewCamera camera;
 
+        
+
         public UniviewPTZControl(UniviewCamera camera) : base(camera)
         {
             this.camera = camera;
         }
 
-        public override bool PTZ_Control(PTZCommand command)
+        public override bool PTZ_Control(PTZCommand command, bool isStop)
         {
             int com = GetSDKCommand(command);
-            return PTZ_Control(com);
+            return PTZ_Control(com, isStop);
         }
 
-        public override bool PTZ_Control(PTZCommand command, int speed)
+        public override bool PTZ_Control(PTZCommand command, int speed, bool isStop)
         {
             int com = GetSDKCommand(command);
-            return PTZ_Control(com, speed);
+            return PTZ_Control(com, speed, isStop);
         }
 
-        protected override bool PTZ_Control(int command)
+        protected override bool PTZ_Control(int command, bool isStop)
         {
             return PTZControl(command, Default_Speed);
         }
 
-        protected override bool PTZ_Control(int command, int speed)
+        protected override bool PTZ_Control(int command, int speed, bool isStop)
         {
             return PTZControl(command, speed);
         }
@@ -226,16 +228,22 @@ namespace CameraSDK.Camera.Uniview
         /// <param name="speed">云台速度</param>
         /// <param name="ChannelID">通道号</param>
         /// <returns></returns>
-		public bool PTZControl(int PTZCommand, int speed, int ChannelID = 1)
+
+        public bool PTZControl(int PTZCommand, int speed)
+        {
+            return PTZControl(PTZCommand, speed, 1);
+        }
+
+        public bool PTZControl(int PTZCommand, int speed, int ChannelID)
         {
             if (Locked)
             {
                 return false;
             }
 
-            if (camera.PlayHandle != IntPtr.Zero)
+            if (camera.RealPlayHandle != IntPtr.Zero)
             {
-                return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZControl(camera.PlayHandle, PTZCommand, speed); //启用的预览的云台控制
+                return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZControl(camera.RealPlayHandle, PTZCommand, speed); //启用的预览的云台控制
 
             }
             else if (camera.deviceInfo.m_lpDevHandle != IntPtr.Zero)
@@ -245,12 +253,22 @@ namespace CameraSDK.Camera.Uniview
             return false;
         }
 
-        public override bool SetPTZ(float Pan, float Tilt, float Zoom, int ChannelId = 1)
+        public override bool SetPTZ(float Pan, float Tilt, float Zoom)
+        {
+            return SetPTZ(new Uniview_PTZ_INFO(Pan, Tilt, Zoom));
+        }
+
+        public override bool SetPTZ(float Pan, float Tilt, float Zoom, int ChannelId)
         {
             return SetPTZ(new Uniview_PTZ_INFO(Pan, Tilt, Zoom), ChannelId);
         }
 
-        public override bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId = 1)
+        public override bool SetPTZ(PTZ_INFO_BASE PTZ)
+        {
+            return SetPTZ(PTZ, 1);
+        }
+
+        public override bool SetPTZ(PTZ_INFO_BASE PTZ, int ChannelId)
         {
             if (Locked)
             {
@@ -271,14 +289,16 @@ namespace CameraSDK.Camera.Uniview
                 fZoomX = INFO.Z_Data
             };
 
+            Console.WriteLine(INFO);
+
             return NETDEVSDK.TRUE == NETDEVSDK.NETDEV_PTZAbsoluteMove(camera.deviceInfo.m_lpDevHandle, ChannelId, PTZ_MOVE_S);
         }
 
-        public override PTZ_INFO_BASE GetPTZ_Info(int ChannelId = 1)
+        public override PTZ_INFO_BASE GetPTZ_Info()
         {
             NETDEV_PTZ_STATUS_S _PTZ_STATUS_S = new NETDEV_PTZ_STATUS_S();
 
-            int iRet = NETDEVSDK.NETDEV_PTZGetStatus(camera.deviceInfo.m_lpDevHandle, ChannelId, ref _PTZ_STATUS_S);
+            int iRet = NETDEVSDK.NETDEV_PTZGetStatus(camera.deviceInfo.m_lpDevHandle, 1, ref _PTZ_STATUS_S);
             if (iRet == NETDEVSDK.FALSE)
             {
                 return null;
@@ -315,7 +335,7 @@ namespace CameraSDK.Camera.Uniview
                 case PTZCommand.PTZ_ZOOM_IN:
                     return (int)NETDEV_PTZ_E.NETDEV_PTZ_ZOOMTELE;
                 case PTZCommand.PTZ_ZOOM_IN_STOP:
-                    return (int)NETDEV_PTZ_E.NETDEV_PTZ_ZOOMTELE_STOP;
+                    return (int)NETDEV_PTZ_E.NETDEV_PTZ_ZOOMTELE_STOP; //NETDEV_PTZ_E
                 case PTZCommand.PTZ_ZOOM_OUT:
                     return (int)NETDEV_PTZ_E.NETDEV_PTZ_ZOOMWIDE;
                 case PTZCommand.PTZ_ZOOM_OUT_STOP:
@@ -357,7 +377,7 @@ namespace CameraSDK.Camera.Uniview
                 }
                 else if(Pan > 180)
                 {
-                    return Pan / -180 + 1;
+                    return Pan / 180 - 2;
                 }
                 return Pan / 180;
             }
