@@ -12,7 +12,18 @@ namespace CameraSDK.Camera
     /// </summary>
     public abstract class PTZControlBase
     {
-        public int Default_Speed = 3;
+        private int default_speed = 3;
+        public int Default_Speed
+        {
+            get => default_speed;
+            set
+            {
+                default_speed = value;
+                default_speed = default_speed < 0 ? 0 : default_speed > MAX_SPEED ? MAX_SPEED : default_speed;
+            }
+        }
+
+        public int MAX_SPEED = 9;
 
         public bool Locked { get; set; } = false;
 

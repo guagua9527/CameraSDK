@@ -19,7 +19,7 @@ namespace CameraSDK.Camera.Dahua
         internal NET_DEVICEINFO_Ex _DeviceInfo = new NET_DEVICEINFO_Ex();
 
         fDrawCallBack drawCallBack;
-
+        fRealDataCallBackEx2 fRealDataCallBack;
         /// <summary>
         /// SDK是否初始化
         /// </summary>
@@ -63,7 +63,18 @@ namespace CameraSDK.Camera.Dahua
 
         public override void GetResolution(ref int width, ref int height)
         {
-            throw new NotImplementedException();
+            object obj = new NET_ENCODE_VIDEO_INFO()
+            {
+                dwSize = (uint)Marshal.SizeOf(typeof(NET_ENCODE_VIDEO_INFO)),
+                emFormatType = EM_FORMAT_TYPE.NORMAL,
+            };
+
+            bool ret = NETClient.GetEncodeConfig(m_LoginID, EM_CFG_ENCODE_TYPE.VIDEO, 0, ref obj, 1000);
+
+            NET_ENCODE_VIDEO_INFO info = (NET_ENCODE_VIDEO_INFO)obj;
+
+            width = info.nWidth;
+            height = info.nHeight;
         }
 
         public override bool Init()
@@ -79,24 +90,34 @@ namespace CameraSDK.Camera.Dahua
             return true;
         }
 
+        /// <summary>
+        /// 注册实时数据回调
+        /// 这里是设置YUV数据的
+        /// </summary>
+        /// <param name="callback"></param>
+        /// <returns></returns>
         public override bool RegistVideoDataCallBack(VideoDataCallBackHanlder callback)
         {
-            fRealDataCallBackEx2 cb = (lRealHandle, dwDataType, pBuffer, dwBufSize, param, dwUser) =>
+            //TODO
+            fRealDataCallBack = (lRealHandle, dwDataType, pBuffer, dwBufSize, param, dwUser) =>
             {
+                if (!DecodeVideoData) return;
+
                 byte[] data = new byte[dwBufSize];
 
                 Marshal.Copy(pBuffer, data, 0, (int)dwBufSize);
 
                 //创建YUV数据的原始图像
-                Mat mat = new Mat(1080 * 3 / 2, 1920, Emgu.CV.CvEnum.DepthType.Cv8U, 1);
+                Mat mat = new Mat(1080 * 3 / 2, 1920, Emgu.CV.CvEnum.DepthType.Cv8U, 1); //宽高的获取
 
                 Marshal.Copy(data, 0, mat.DataPointer, data.Length);
 
                 //YUV图像转BGR图像
-                Mat res = new Mat(1080, 19920, Emgu.CV.CvEnum.DepthType.Cv8U, 3);
+                Mat res = new Mat(1080, 1920, Emgu.CV.CvEnum.DepthType.Cv8U, 3);
                 CvInvoke.CvtColor(mat, res, Emgu.CV.CvEnum.ColorConversion.Yuv2BgrIyuv);
 
-                callback?.Invoke(new Bitmap(res.Bitmap));
+                Bitmap bmp = new Bitmap(res.Bitmap);
+                Task.Run(() => callback?.Invoke(bmp));
 
                 res.Dispose();
                 mat.Dispose();
@@ -104,8 +125,8 @@ namespace CameraSDK.Camera.Dahua
                 GC.Collect();
             };
 
-            GC.KeepAlive(cb);
-            bool ret = NETClient.SetRealDataCallBack(RealPlayHandle, cb, IntPtr.Zero, EM_REALDATA_FLAG.YUV_DATA);
+
+            bool ret = NETClient.SetRealDataCallBack(RealPlayHandle, fRealDataCallBack, IntPtr.Zero, EM_REALDATA_FLAG.YUV_DATA);
 
             return ret;
         }
@@ -127,9 +148,14 @@ namespace CameraSDK.Camera.Dahua
 
         public override bool StartRealPlay(IntPtr hwnd)
         {
+            return StartRealPlay(hwnd, 0);
+        }
+
+        public override bool StartRealPlay(IntPtr hwnd, int Channel)
+        {
             PlayHwnd = hwnd;
 
-            RealPlayHandle = NETClient.RealPlay(m_LoginID, 0, hwnd, EM_RealPlayType.Realplay);
+            RealPlayHandle = NETClient.RealPlay(m_LoginID, Channel, hwnd, EM_RealPlayType.Realplay);
 
             IsPlay = true;
 
@@ -264,7 +290,7 @@ namespace CameraSDK.Camera.Dahua
         }
 
         /// <summary>
-        /// 设置远程抓图回调
+        /// 设置远程抓图回调,需要在RealPlay之前调用
         /// </summary>
         /// <param name="snapRevCallBack"></param>
         public void RegisterSnapCallBack(fSnapRevCallBack m_SnapRevCallBack)

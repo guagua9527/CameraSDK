@@ -24,10 +24,32 @@ namespace CameraSDK.Camera
 
         protected bool m_IsInSave;
 
+        //当前预览画面的宽高
+        protected int _frameWidth;
+        protected int _frameHeight;
+
+        public int FrameWidth { get => _frameWidth; }
+        public int FrameHeight { get => _frameHeight; }
+
+        /// <summary>
+        /// 是否正在录像
+        /// </summary>
+        public bool IsInSave { get => m_IsInSave; } 
+
+        /// <summary>
+        /// 自定义的错误信息
+        /// </summary>
         public string LastCustomError { get; protected set; } = "";
 
-        public bool IsInSave { get => m_IsInSave; } //是否正在录像
+        /// <summary>
+        /// 该值为true时，才会触发VideoDataCallBack
+        /// </summary>
+        public bool DecodeVideoData { get; set; } = false;
 
+        /// <summary>
+        /// 最大变倍设置
+        /// 会影响PTZ参数的计算
+        /// </summary>
         public float MAX_ZOOM;
         /// <summary>
         /// 云台控制成员
@@ -44,7 +66,7 @@ namespace CameraSDK.Camera
         /// </summary>
         public IntPtr RealPlayHandle { get; protected set; }
 
-        public AI_SDK ai_SDK;
+        //public AI_SDK ai_SDK;
 
         /// <summary>
         /// 是否正在播放
@@ -58,7 +80,7 @@ namespace CameraSDK.Camera
         public delegate void VideoDataCallBackHanlder(Bitmap bmp);
         //public event VideoDataCallBackHanlder VideoDataCallBackEvent;
 
-        public delegate void DrawFuncCallBackHandle(IntPtr Hdc);
+        public delegate void DrawFuncCallBackHandle(IntPtr hdc);
         //public event DrawFuncCallBackHandle DrawFuncCallBackEvent;
 
         public CameraBase(string ip, ushort port, string userName, string password, double height)
@@ -93,8 +115,6 @@ namespace CameraSDK.Camera
             }
         }
 
-
-
         /// <summary>
         /// 初始化相机
         /// </summary>
@@ -119,6 +139,7 @@ namespace CameraSDK.Camera
 
         /// <summary>
         /// 注册画面回调事件
+        /// 大华相机需要在RealPlay之前设置回调
         /// </summary>
         /// <param name="drawFunc"></param>
         public abstract void RegisterDrawFuncCB(DrawFuncCallBackHandle drawFunc);
@@ -159,18 +180,27 @@ namespace CameraSDK.Camera
         public abstract bool SnapEx(string fullPath);
 
         /// <summary>
-        /// 启动实时预览
+        /// 启动主码流实时预览
         /// </summary>
         /// <param name="hwnd">播放控件句柄</param>
         public abstract bool StartRealPlay(IntPtr hwnd);
 
+        /// <summary>
+        /// 启动指定通道号的实时预览
+        /// </summary>
+        /// <param name="hwnd">播放控件句柄</param>
+        /// <param name="Channel">通道号</param>
+        /// <returns></returns>
+        public abstract bool StartRealPlay(IntPtr hwnd, int Channel);
         /// <summary>
         /// 停止实时预览
         /// </summary>
         public abstract bool StopRealPlay(IntPtr hwnd);
 
         /// <summary>
-        /// 获取当前分辨率
+        /// 子类实现
+        /// 大华：获取主码流分辨率
+        /// 宇视：获取当前播放的码流分辨率
         /// </summary>
         /// <param name="width"></param>
         /// <param name="height"></param>
@@ -194,6 +224,9 @@ namespace CameraSDK.Camera
         public abstract void Dispose();
     }
 
+    /// <summary>
+    /// 相机的配置结构体
+    /// </summary>
     public struct CAMERA_CONFIG
     {
         public string Ip;
@@ -202,6 +235,9 @@ namespace CameraSDK.Camera
         public string UserName;
         public string Password;
 
+        /// <summary>
+        /// 设备安装的高度，影响一些相关的计算(无高度数据的雷达数据，计算光电俯仰角)
+        /// </summary>
         public double Height;
 
         public CAMERA_CONFIG(string ip, ushort port, string username, string password, double height = 0)

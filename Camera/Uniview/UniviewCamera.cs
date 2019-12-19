@@ -83,11 +83,16 @@ namespace CameraSDK.Camera.Uniview
 
         public override bool StartRealPlay(IntPtr hwnd)
         {
+            return StartRealPlay(hwnd, 1);
+        }
+
+        public override bool StartRealPlay(IntPtr hwnd, int Channel)
+        {
             PlayHwnd = hwnd;
 
             NETDEV_PREVIEWINFO_S stPreviewInfo = new NETDEV_PREVIEWINFO_S
             {
-                dwChannelID = 1,
+                dwChannelID = Channel,
                 dwLinkMode = (int)NETDEV_PROTOCAL_E.NETDEV_TRANSPROTOCAL_RTPTCP,
                 dwStreamType = (int)NETDEV_LIVE_STREAM_INDEX_E.NETDEV_LIVE_STREAM_INDEX_MAIN,
                 hPlayWnd = PlayHwnd
@@ -115,6 +120,8 @@ namespace CameraSDK.Camera.Uniview
             //NETDEV_DISPLAY_CALLBACK_PF displayCB = new NETDEVSDK.NETDEV_DISPLAY_CALLBACK_PF(DisplayCallBack);
             //IntPtr displayPtr = Marshal.GetFunctionPointerForDelegate(displayCB);
             //iRet = NETDEVSDK.NETDEV_SetPlayDisplayCB(PlayHandle, displayPtr, IntPtr.Zero);
+
+            GetResolution(ref _frameWidth, ref _frameHeight);
 
             return true;
         }
@@ -172,6 +179,8 @@ namespace CameraSDK.Camera.Uniview
 		//[HandleProcessCorruptedStateExceptions]
         public void VideoDataCallBack(IntPtr lpUserId, ref NETDEV_PICTURE_DATA_S pstPictureData, IntPtr lpUserParam)
         {
+            if (!DecodeVideoData) return;
+
             //YUV画面的数据
             NETDEV_PICTURE_DATA_S temp = pstPictureData;
             ThreadPool.QueueUserWorkItem((obj) =>
@@ -184,7 +193,7 @@ namespace CameraSDK.Camera.Uniview
                 try
                 {
                     Marshal.Copy(temp.pucData[0], Yarr, 0, Yarr.Length);
-                    Marshal.Copy(temp.pucData[1], Uarr, 0, Uarr.Length);                    
+                    Marshal.Copy(temp.pucData[1], Uarr, 0, Uarr.Length);
 
                     Marshal.Copy(temp.pucData[2], Varr, 0, Varr.Length);
                 }
@@ -207,15 +216,13 @@ namespace CameraSDK.Camera.Uniview
                 Mat res = new Mat(temp.dwPicHeight, temp.dwPicWidth, Emgu.CV.CvEnum.DepthType.Cv8U, 3);
                 CvInvoke.CvtColor(mat, res, Emgu.CV.CvEnum.ColorConversion.Yuv2BgrIyuv);
 
-                if (ai_SDK != null)
-                {
-                    Bitmap bmp = new Bitmap(res.Bitmap);
-                    VideoDataCallBackEvent?.Invoke(bmp);
-                }
+
+                Bitmap bmp = new Bitmap(res.Bitmap);
+                Task.Run(() => VideoDataCallBackEvent?.Invoke(bmp));
 
                 res.Dispose();
                 mat.Dispose();
-                
+
                 GC.Collect();
             });
         }

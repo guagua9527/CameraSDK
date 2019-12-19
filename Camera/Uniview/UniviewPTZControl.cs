@@ -17,6 +17,8 @@ namespace CameraSDK.Camera.Uniview
         public UniviewPTZControl(UniviewCamera camera) : base(camera)
         {
             this.camera = camera;
+
+            MAX_SPEED = 9;
         }
 
         public override bool PTZ_Control(PTZCommand command, bool isStop)

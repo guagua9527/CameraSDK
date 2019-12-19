@@ -177,7 +177,6 @@ namespace CameraSDK.Camera.Dahua
 
         public override bool PTZ_Left(int speed)
         {
-            Console.WriteLine(1);
             return NETClient.PTZControl(camera.m_LoginID, 0, EM_EXTPTZ_ControlType.LEFT_CONTROL, 0, speed, 0, false, IntPtr.Zero);
         }
 
@@ -283,9 +282,21 @@ namespace CameraSDK.Camera.Dahua
 
         public override bool SetPTZ(float Pan, float Tilt, float Zoom, int ChannelId)
         {
+            Tilt = Tilt < -180 ? 180 : Tilt;
+            Tilt = Tilt > 180 ? 180 : Tilt;
+
+            Zoom = Zoom < 0 ? 0 : Zoom;
+            Zoom = Zoom > 128 ? 128 : Zoom;
+
+            while (Pan < 0)
+                Pan += 360;
+
+            Pan %= 360;
+
             int p = (int)(Pan * 10); //0~3600
-            int t = (int)(Tilt * 10); //0~900
-            int z = (int)Zoom; //0~128
+            int t = (int)(Tilt * 10); //-1800,1800
+            int z = (int)(Zoom / 128 * camera.MAX_ZOOM); //0~128
+
 
             NET_PTZ_SPACE_UNIT ptz = new NET_PTZ_SPACE_UNIT
             {
